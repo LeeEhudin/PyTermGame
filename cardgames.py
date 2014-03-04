@@ -1,91 +1,48 @@
 """A module defining functions for playing card games"""
 
 import random
-import itertools
 
-class Card(object):
+import player
+
+class Card():
     """Defines a Card class for easy access to a card's suit and value"""
     VALUES = ('ace', '2', '3', '4', '5', '6', '7', '8', '9', '10',
               'jack', 'queen', 'king')
     SUITS = ('spades', 'clubs', 'hearts', 'diamonds')
+    _value_aliases = {'ace':'A', 'jack':'J', 'queen':'Q', 'king':'K'}
+    _suit_aliases = {'spades':'♠', 'clubs':'♣', 'hearts':'♥', 'diamonds':'♦'}
 
     def __init__(self, value, suit):
-        self.value = str(value)
-        self.suit = str(suit)
+        self.value = str(value).lower()
+        self.suit = str(suit).lower()
 
     def __eq__(self, other):
-        if isinstance(other, Card) and \
-        self.value == other.value and self.suit == other.suit:
+        if (isinstance(other, Card) and
+            self.value == other.value and self.suit == other.suit):
             return True
         else:
             return False
 
     def __str__(self):
-        if self.value == 'ace':
-            val = 'A'
-        elif self.value == 'jack':
-            val = 'J'
-        elif self.value == 'queen':
-            val = 'Q'
-        elif self.value == 'king':
-            val = 'K'
-        else:
-            val = self.value
-
-        if self.suit == 'spades':
-            suit = '♠'
-        elif self.suit == 'clubs':
-            suit = '♣'
-        elif self.suit == 'hearts':
-            suit = '♥'
-        elif self.suit == 'diamonds':
-            suit = '♦'
-
-        return "{}{}".format(val, suit)
+        return "{:1}{:1}".format(
+            self._value_aliases.get(self.value, self.value),
+            self._suit_aliases.get(self.suit, self.suit))
 
     def __repr__(self):
-        return str([self.value, self.suit])
+        return "Card(value={value!r}, suit={suit!r})".format(**self.__dict__)
 
-class CardCollection(list):
-    def __init__(self, cards=None):
-        if cards:
-            if isinstance(cards, list):
-                super(CardCollection, self).__init__(cards)
-            else:
-                super(CardCollection, self).__init__([cards])
-        else:
-            super(CardCollection, self).__init__([])
-
-    def __eq__(self, other):
-        if isinstance(other, Card) and len(self) == 1 and self[0] == other:
-            return True
-        elif isinstance(other, CardCollection) and len(self) == len(other):
-            for i in range(len(self)):
-                if self[i] != other[i]:
-                    return False
-            return True
-        else:
-            return False
-
-    def __str__(self):
-        return ', '.join(map(str, self))
-
-    def __repr__(self):
-        return super(CardCollection, self).__repr__(list(map(repr, self)))
-
-class Deck(object):
-
+class Deck():
     def __init__(self, shuffled=True):
-        self.deck = [Card(*card) \
-                     for card in itertools.product(Card.SUITS, Card.VALUES)]
+        self.deck = [Card(value, suit) for
+                     suit in Card.SUITS for value in Card.VALUES]
         if shuffled:
             self.shuffle()
 
     def __repr__(self):
-        return ', '.join(map(repr,self.deck))
+        return ', '.join(map(repr, self.deck))
 
     def __str__(self):
-        return ', '.join(map(str,self.deck))
+        return ', '.join(map(str, self.deck))
 
     def __len__(self):
         return len(self.deck)
@@ -106,8 +63,7 @@ class Deck(object):
     def draw(self):
         return self.deck.pop(0)
 
-class Hand(object):
-
+class Hand():
     def __init__(self, initial_cards=None, sort_by_value=True):
         self.cards = {}
         self.sort_by_value = sort_by_value
@@ -131,7 +87,7 @@ class Hand(object):
         return self.length
 
     def __repr__(self):
-        return ', '.join(map(repr,self.cards))
+        return ', '.join(map(repr, self.cards))
 
     def __str__(self):
         hand = []
@@ -147,4 +103,4 @@ class Hand(object):
                     for val in Card.VALUES:
                         if val in self.cards[suit]:
                             hand.append(self.cards[suit][val])
-        return ', '.join(map(str,hand))
+        return ', '.join(map(str, hand))
