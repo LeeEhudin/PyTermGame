@@ -80,7 +80,7 @@ class Deck(collections.abc.Sized, collections.abc.Iterable):
             self.shuffle()
 
     def __repr__(self):
-        return ', '.join(repr(card) for card in self.cards)
+        return repr(', '.join(repr(card) for card in self.cards))
 
     def __str__(self):
         return ', '.join(str(card) for card in self.cards)
@@ -89,30 +89,28 @@ class Deck(collections.abc.Sized, collections.abc.Iterable):
         return len(self.cards)
 
     def __iter__(self):
-        return self.draw(len(self.cards))
+        return self.deal_cards()
 
     def shuffle(self):
         """Shuffle the deck"""
         random.shuffle(self.cards)
 
-    def draw(self, num_cards):
-        """Draw num_cards card from the Deck using a generator"""
-        for _ in range(num_cards):
-            yield self.cards.pop(0)
+    def deal_cards(self):
+        """A generator that deals out cards"""
+        if not self.cards:
+            raise IndexError("Deck is empty.")
+        for card in list(self.cards):
+            self.cards.remove(card)
+            yield card
 
-    def deal(self, num_cards, *players):
-        """Deals num_cards cards to each player"""
-        for i, card in enumerate(self.draw(num_cards * len(players))):
-            players[i % len(players)].hand.add_card(card)
-
-class Hand(collections.abc.Sized):
+class Hand(collections.abc.Sized, collections.abc.Container):
     """Defines a Hand class to store Player's hands"""
-    def __init__(self, *cards, sort_by_val=True):
+    def __init__(self, cards=None, sort_by_val=True):
         self.cards = []
         if sort_by_val:
-            self.sort_by = "value"
+            self._sorted_by_val = True
         else:
-            self.sort_by = "suit"
+            self._sorted_by_val = False
         self._keys = []
 
         if cards:
@@ -122,38 +120,56 @@ class Hand(collections.abc.Sized):
     def __add__(self, other):
         for card in other:
             self.add_card(card)
+        return self
+
+    def __eq__(self, other):
+        if (isinstance(other, Hand) and
+                sorted(self.cards) == sorted(other.cards)):
+            return True
+        else:
+            return False
+
+    def __neq__(self, other):
+        return not self == other
 
     def __len__(self):
         return len(self.cards)
 
+    def __contains__(self, item):
+        return item in self.cards
+
     def __repr__(self):
-        return ', '.join(repr(card) for card in self.cards)
+        return repr(', '.join(repr(card) for card in self.cards))
 
     def __str__(self):
         return ', '.join(str(card) for card in self.cards)
 
+    @property
+    def sorting(self):
+        """Returns a string identifying how the Hand is sorted"""
+        if self._sorted_by_val:
+            return "value"
+        else:
+            return "suit"
+
     def add_card(self, card):
         """Add a card to the Hand"""
-        if self.sort_by == "value":
+        key = 0
+        if self._sorted_by_val:
             key = (Card.VALUES.index(card.value)*4 +
                    Card.SUITS.index(card.suit))
-            index = bisect.bisect(self._keys, key)
-            self._keys.insert(index, key)
-            self.cards.insert(index, card)
-        elif self.sort_by == "suit":
-            key = (Card.SUITS.index(card.suit)*13 +
-                   Card.VALUES.index(card.values))
-            index = bisect.bisect(self._keys, key)
-            self._keys.insert(index, key)
-            self.cards.insert(index, card)
+
         else:
-            raise ValueError("%s is not a valid sorting for a hand" %
-                             self.sort_by)
+            key = (Card.SUITS.index(card.suit)*13 +
+                   Card.VALUES.index(card.value))
+        index = bisect.bisect(self._keys, key)
+        self._keys.insert(index, key)
+        self.cards.insert(index, card)
 
     def sort_by_value(self):
         """Sorts the hand by value"""
-        if self.sort_by != "value":
-            self.sort_by = "value"
+        if not self._sorted_by_val:
+            self._sorted_by_val = True
 
             temp_hand = self.cards
             self.cards = []
@@ -164,8 +180,8 @@ class Hand(collections.abc.Sized):
 
     def sort_by_suit(self):
         """Sorts the hand by suit"""
-        if self.sort_by != "suit":
-            self.sort_by = "suit"
+        if self._sorted_by_val:
+            self._sorted_by_val = False
 
             temp_hand = self.cards
             self.cards = []
@@ -183,12 +199,39 @@ class CardgamePlayer(base.Player):
         else:
             self.hand = Hand()
 
+    def __add__(self, other):
+        return self.hand + other
+
+    def __iadd__(self, other):
+        self.hand += other
+        return self
+
+    def __repr__(self):
+        return ("CardgamePlayer(name={name!r}, "
+                "term={_term.name!r}, hand={hand!r})".format(**self.__dict__))
+
+    def add_card(self, card):
+        """Add a card to the player's hand"""
+        self.hand.add_card(card)
+
 class Cardgame(base.Game, metaclass=abc.ABCMeta):
     """Defines a card game"""
-    def __init__(self, *players):
-        super().__init__(self, *players)
+    def __init__(self, players=None):
+        super().__init__(players)
         self.deck = Deck()
-        self.hand_size = 5
+
+    def __repr__(self):
+        return ("Cardgame(players={players!r}, "
+                "deck={deck!r})".format(**self.__dict__))
+
+    def deal(self, num_cards):
+        """Deals out num_cards to each player"""
+        for _ in num_cards:
+            for player in self.players:
+                try:
+                    player.add_card(next(self.deck))
+                except StopIteration:
+                    raise IndexError("Deck is empty.")
 
     def pregame(self):
         """Function exectuted before the main game logic"""
@@ -211,7 +254,6 @@ class Cardgame(base.Game, metaclass=abc.ABCMeta):
     def play(self):
         """Defines the flow of execution in a card games"""
         self.pregame()
-        self.deck.deal(self.hand_size, self.players)
         player_cycle = itertools.cycle(self.players)
         while not self.is_game_over:
             self.move(player_cycle.next())
