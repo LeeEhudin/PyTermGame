@@ -229,6 +229,7 @@ class CardGame(base.Game, metaclass=abc.ABCMeta):
     """Defines a card game"""
     def __init__(self, players=None):
         super().__init__(players)
+        self.name = "CardGame"
         self.deck = Deck()
 
     def __repr__(self):

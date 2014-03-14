@@ -60,3 +60,15 @@ def prompt(validator, prompt_msg="", error_msg=""):
         print(error_msg, end="")
         val = input(prompt_msg)
     return val
+
+def choice(choices):
+    """Returns a numbered list of choices and prompts for a number in the
+    list
+    """
+    for i, c in enumerate(choices):
+        print("%d) %s" % (i, c))
+
+    prompt_msg = "Please chose a number from the options list.\n"
+    error_msg = "Please enter a number from 0-%d\n" % (len(choices)-1)
+    validator = lambda val: int(val) in range(len(choices))
+    return int(prompt(validator, prompt_msg, error_msg))
