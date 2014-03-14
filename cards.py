@@ -5,9 +5,8 @@ import bisect
 import collections.abc
 import itertools
 import random
-import sys
 
-import base
+from . import base
 
 class Card(object):
     """Defines a Card class for easy access to a card's suit and value"""
@@ -71,7 +70,7 @@ class Card(object):
     def __repr__(self):
         return "Card(value={value!r}, suit={suit!r})".format(**self.__dict__)
 
-class Deck(collections.abc.Sized, collections.abc.Iterable):
+class Deck(collections.abc.Sized, collections.abc.Iterator):
     """Defines a Deck class to store cards"""
     def __init__(self, shuffled=True):
         self.cards = [Card(value, suit) for
@@ -91,6 +90,9 @@ class Deck(collections.abc.Sized, collections.abc.Iterable):
     def __iter__(self):
         return self.deal_cards()
 
+    def __next__(self):
+        return next(self.deal_cards())
+
     def shuffle(self):
         """Shuffle the deck"""
         random.shuffle(self.cards)
@@ -103,7 +105,8 @@ class Deck(collections.abc.Sized, collections.abc.Iterable):
             self.cards.remove(card)
             yield card
 
-class Hand(collections.abc.Sized, collections.abc.Container):
+class Hand(collections.abc.Sized, collections.abc.Container,
+           collections.abc.Iterable):
     """Defines a Hand class to store Player's hands"""
     def __init__(self, cards=None, sort_by_val=True):
         self.cards = []
@@ -138,6 +141,10 @@ class Hand(collections.abc.Sized, collections.abc.Container):
     def __contains__(self, item):
         return item in self.cards
 
+    def __iter__(self):
+        for card in self.cards:
+            yield card
+
     def __repr__(self):
         return repr(', '.join(repr(card) for card in self.cards))
 
@@ -166,6 +173,10 @@ class Hand(collections.abc.Sized, collections.abc.Container):
         self._keys.insert(index, key)
         self.cards.insert(index, card)
 
+    def remove_card(self, card):
+        """Removes a card from the Hand"""
+        self.cards.remove(card)
+
     def sort_by_value(self):
         """Sorts the hand by value"""
         if not self._sorted_by_val:
@@ -190,10 +201,10 @@ class Hand(collections.abc.Sized, collections.abc.Container):
             for card in temp_hand:
                 self.add_card(card)
 
-class CardgamePlayer(base.Player):
+class CardPlayer(base.Player):
     """Defines a Player for a card game"""
-    def __init__(self, name, term=sys.stdout, hand=None):
-        super().__init__(name, term)
+    def __init__(self, name, hand=None):
+        super().__init__(name)
         if hand:
             self.hand = hand
         else:
@@ -208,13 +219,13 @@ class CardgamePlayer(base.Player):
 
     def __repr__(self):
         return ("CardgamePlayer(name={name!r}, "
-                "term={_term.name!r}, hand={hand!r})".format(**self.__dict__))
+                "hand={hand!r})".format(**self.__dict__))
 
     def add_card(self, card):
         """Add a card to the player's hand"""
         self.hand.add_card(card)
 
-class Cardgame(base.Game, metaclass=abc.ABCMeta):
+class CardGame(base.Game, metaclass=abc.ABCMeta):
     """Defines a card game"""
     def __init__(self, players=None):
         super().__init__(players)
@@ -226,7 +237,7 @@ class Cardgame(base.Game, metaclass=abc.ABCMeta):
 
     def deal(self, num_cards):
         """Deals out num_cards to each player"""
-        for _ in num_cards:
+        for _ in range(num_cards):
             for player in self.players:
                 try:
                     player.add_card(next(self.deck))
@@ -255,6 +266,7 @@ class Cardgame(base.Game, metaclass=abc.ABCMeta):
         """Defines the flow of execution in a card games"""
         self.pregame()
         player_cycle = itertools.cycle(self.players)
-        while not self.is_game_over:
-            self.move(player_cycle.next())
+        self.move(next(player_cycle))
+        while not self.is_game_over():
+            self.move(next(player_cycle))
         self.postgame()
